@@ -1,0 +1,16 @@
+[package]
+name = "IMAP"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+client = { path = "./crates/client" }
+server = { path = "./crates/server" }
+transport = { path = "./crates/transport" }
+
+[workspace]
+members = [
+    "crates/client",
+    "crates/server",
+    "crates/transport"
+]
