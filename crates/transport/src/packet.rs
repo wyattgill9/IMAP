@@ -32,12 +32,14 @@ impl Packet {
     // Deserialize function (basic)
     pub fn deserialize(buffer: &[u8]) -> Option<Self> {
         if buffer.len() < 37 {
+            eprintln!("Buffer too small for deserialization: {:?}", buffer);
             return None; // Minimum size check (32 + 4 + 1)
         }
         let hash = <[u8; 32]>::try_from(&buffer[0..32]).ok()?;
         let length = u32::from_be_bytes(buffer[32..36].try_into().ok()?);
         let msg_type = buffer[36];
         let payload = buffer[37..].to_vec();
+        
         Some(Packet {
             hash,
             length,
@@ -46,7 +48,6 @@ impl Packet {
         })
     }
 }
-
 impl fmt::Debug for Packet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Packet")
