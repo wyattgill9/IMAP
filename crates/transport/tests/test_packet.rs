@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::net::{TcpListener, TcpStream};
+    use std::thread;
     use transport::connection::Connection;
     use transport::packet::Packet;
 
@@ -26,24 +27,38 @@ mod tests {
 
     #[test]
     fn test_send_receive_packet() {
-        let mut connection = Connection::new(); 
+        // Create a server listener for testing
+        let listener = TcpListener::bind("127.0.0.1:7880").expect("Failed to bind server socket");
 
-        // Define a packet to send
-        let example_hash = [0u8; 32]; // Placeholder hash
-        let msg_type = 0u8; // Request
-        let payload = b"Request Payload".to_vec();
-        let packet = Packet::new(example_hash, msg_type, payload.clone());
+        // Spawn a client in a separate thread
+        thread::spawn(move || {
+            let stream = TcpStream::connect("127.0.0.1:7880").expect("Failed to connect to server");
+            let mut client_connection = Connection::new(stream);
 
-        // Send the packet using the connection
-        connection.send_packet(&packet).expect("Failed to send packet");
+            let example_hash = [0u8; 32];
+            let msg_type = 0u8; // Request
+            let payload = b"Request Payload".to_vec();
+            let packet = Packet::new(example_hash, msg_type, payload);
 
-        // Simulate receiving the packet 
-        let received_serialized_packet = packet.serialize(); 
-        let received_packet = Packet::deserialize(&received_serialized_packet).expect("Failed to deserialize received packet");
+            // Client sends a packet
+            client_connection.send_packet(&packet).expect("Failed to send packet");
+        });
 
-        // Assert that the received packet matches the original sent packet
-        assert_eq!(packet.hash, received_packet.hash, "Hash mismatch during send/receive test");
-        assert_eq!(packet.msg_type, received_packet.msg_type, "Message type mismatch during send/receive test");
-        assert_eq!(packet.payload, received_packet.payload, "Payload mismatch during send/receive test");
+        // Accept a connection from the client
+        let (stream, _addr) = listener.accept().expect("Failed to accept client connection");
+        let mut server_connection = Connection::new(stream);
+
+        // Server receives the packet
+        let received_packet = server_connection.receive_packet().expect("Failed to receive packet");
+
+        // Define the expected packet
+        let expected_hash = [0u8; 32];
+        let expected_msg_type = 0u8;
+        let expected_payload = b"Request Payload".to_vec();
+
+        // Assert that the received packet matches expectations
+        assert_eq!(received_packet.hash, expected_hash, "Hash mismatch during send/receive test");
+        assert_eq!(received_packet.msg_type, expected_msg_type, "Message type mismatch during send/receive test");
+        assert_eq!(received_packet.payload, expected_payload, "Payload mismatch during send/receive test");
     }
 }

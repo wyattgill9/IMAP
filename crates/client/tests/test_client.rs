@@ -1,11 +1,28 @@
 #[cfg(test)]
 mod tests {
+    use std::net::{TcpListener, TcpStream};
+    use std::thread;
     use transport::connection::Connection;
     use transport::packet::Packet;
 
     #[test]
     fn test_client_send_packet() {
-        let mut connection = Connection::new(); // Assuming `Connection::new` creates a connection
+        // Start a server on a separate thread to accept the client's connection
+        let listener = TcpListener::bind("127.0.0.1:7878").expect("Failed to bind to address");
+        thread::spawn(move || {
+            if let Ok((mut socket, _addr)) = listener.accept() {
+                let mut connection = Connection::new(socket);
+                // Optionally, implement logic for receiving packets from the client
+            }
+        });
+
+        // Give the server a moment to start (a better approach is using a more reliable synchronization)
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        // Connect to the server as a client
+        let stream = TcpStream::connect("127.0.0.1:7878").expect("Failed to connect to server");
+        let mut connection = Connection::new(stream);
+
         let example_hash = [0u8; 32];
         let msg_type = 0u8; // Request message type
         let payload = b"Client Test Payload".to_vec();
