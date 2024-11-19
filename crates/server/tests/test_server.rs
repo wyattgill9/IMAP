@@ -14,8 +14,7 @@ mod tests {
         // Simulate sending a packet
         connection.send_packet(&packet).expect("Failed to send packet");
 
-        // Simulate receiving the same packet (this buffer should be serialized data from the sent packet)
-        let serialized_packet = packet.serialize(); // Serialize the packet to send as received data
+        let serialized_packet = packet.serialize(); 
         let received_packet = Packet::deserialize(&serialized_packet).expect("Failed to deserialize packet");
 
         // Validate the packet was correctly received
@@ -23,6 +22,6 @@ mod tests {
         assert_eq!(packet.msg_type, received_packet.msg_type);
         assert_eq!(packet.payload, received_packet.payload);
 
-        // Server logic would generate a response here (not implemented in this test)
+        // Server logic would generate a response here (no implemnt in this test)
     }
 }

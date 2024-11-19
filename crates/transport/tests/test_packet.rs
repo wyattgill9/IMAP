@@ -26,7 +26,7 @@ mod tests {
 
     #[test]
     fn test_send_receive_packet() {
-        let mut connection = Connection::new(); // Ensure `Connection::new` sets up appropriate buffer/queue mechanisms
+        let mut connection = Connection::new(); 
 
         // Define a packet to send
         let example_hash = [0u8; 32]; // Placeholder hash
@@ -37,8 +37,8 @@ mod tests {
         // Send the packet using the connection
         connection.send_packet(&packet).expect("Failed to send packet");
 
-        // Simulate receiving the packet (assuming `Connection` internally handles buffering correctly)
-        let received_serialized_packet = packet.serialize(); // Manually serialize for controlled testing
+        // Simulate receiving the packet 
+        let received_serialized_packet = packet.serialize(); 
         let received_packet = Packet::deserialize(&received_serialized_packet).expect("Failed to deserialize received packet");
 
         // Assert that the received packet matches the original sent packet
