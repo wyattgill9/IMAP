@@ -1,5 +1,6 @@
-use std::fmt;
+use std::convert::TryInto;
 
+#[derive(Debug)]
 pub struct Packet {
     pub hash: [u8; 32],     // 256-bit hash identifier
     pub length: u32,        // Length of the payload
@@ -19,28 +20,32 @@ impl Packet {
         }
     }
 
-    // Serialize function (basic)
+    // Serialize function: Serialize the packet to a byte vector
     pub fn serialize(&self) -> Vec<u8> {
-        let mut buffer = Vec::new();
-        buffer.extend_from_slice(&self.hash);
-        buffer.extend_from_slice(&self.length.to_be_bytes());
-        buffer.push(self.msg_type);
-        buffer.extend_from_slice(&self.payload);
+        let mut buffer = Vec::with_capacity(37 + self.payload.len());
+        buffer.extend_from_slice(&self.hash); // 32 bytes for the hash
+        buffer.extend_from_slice(&self.length.to_be_bytes()); // 4 bytes for length
+        buffer.push(self.msg_type); // 1 byte for msg_type
+        buffer.extend_from_slice(&self.payload); // Payload data
         buffer
     }
 
-    // Deserialize function (basic)
-    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
+    // Deserialize function: Deserialize a byte buffer into a Packet
+    pub fn deserialize(buffer: &[u8]) -> Result<Self, String> {
         if buffer.len() < 37 {
-            eprintln!("Buffer too small for deserialization: {:?}", buffer);
-            return None; // Minimum size check (32 + 4 + 1)
+            return Err(format!(
+                "Buffer too small for deserialization: {} bytes, expected at least 37",
+                buffer.len()
+            ));
         }
-        let hash = <[u8; 32]>::try_from(&buffer[0..32]).ok()?;
-        let length = u32::from_be_bytes(buffer[32..36].try_into().ok()?);
+
+        let hash = <[u8; 32]>::try_from(&buffer[0..32])
+            .map_err(|_| "Failed to read 32-byte hash from buffer")?;
+        let length = u32::from_be_bytes(buffer[32..36].try_into().map_err(|_| "Failed to read length")?);
         let msg_type = buffer[36];
         let payload = buffer[37..].to_vec();
-        
-        Some(Packet {
+
+        Ok(Packet {
             hash,
             length,
             msg_type,
@@ -48,13 +53,4 @@ impl Packet {
         })
     }
 }
-impl fmt::Debug for Packet {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Packet")
-            .field("hash", &self.hash)
-            .field("length", &self.length)
-            .field("msg_type", &self.msg_type)
-            .field("payload", &self.payload)
-            .finish()
-    }
-}
+
