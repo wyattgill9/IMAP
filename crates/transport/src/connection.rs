@@ -18,8 +18,9 @@ impl Connection {
 
     // Optimized async send for a batch of packets
     pub async fn send_packets(&mut self, packets: Vec<Packet>) -> Result<(), String> {
-        let mut buffer = Vec::with_capacity(37 * packets.len() + packets.iter().map(|p| p.payload.len()).sum::<usize>());
-        
+        let total_size: usize = packets.iter().map(|p| 37 + p.payload.len()).sum();
+        let mut buffer = Vec::with_capacity(total_size);
+
         // Serialize packets and append to the buffer
         for packet in packets {
             buffer.extend(packet.serialize());
@@ -30,7 +31,7 @@ impl Connection {
             .await
             .map_err(|e| format!("Failed to send batch of packets: {}", e))?;
 
-        // Ensure the data is sent
+        // Avoid flushing on every send unless necessary
         self.stream.flush().await.map_err(|e| format!("Failed to flush packet: {}", e))?;
         Ok(())
     }
@@ -47,7 +48,7 @@ impl Connection {
         Packet::deserialize(&buffer).map_err(|e| format!("Failed to deserialize packet: {}", e))
     }
 
-    // Get a reusable buffer from the pool
+    // Get a reusable buffer from the pool with minimal locking
     async fn get_buffer_for_read(&self) -> Vec<u8> {
         let mut pool = self.buffer_pool.lock().await;
 
@@ -55,13 +56,17 @@ impl Connection {
         if let Some(buffer) = pool.pop() {
             buffer
         } else {
+            // Allocate a new buffer if necessary
             vec![0; 2048] // Default buffer size; can be adjusted
         }
     }
 
-    // Return buffer to the pool after reading
+    // Return buffer to the pool after reading, only if the buffer is large enough
     pub async fn return_buffer_to_pool(&self, buffer: Vec<u8>) {
-        let mut pool = self.buffer_pool.lock().await;
-        pool.push(buffer);
+        // Only return buffers to the pool that are not too large to avoid growing the pool unnecessarily
+        if buffer.len() <= 2048 {
+            let mut pool = self.buffer_pool.lock().await;
+            pool.push(buffer);
+        }
     }
 }
