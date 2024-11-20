@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::task::spawn;
+use tokio::task::{spawn, spawn_blocking};
 use transport::connection::Connection;
 use transport::packet::Packet;
 
@@ -37,36 +37,44 @@ async fn ultra_optimized_test_multiple_client_requests() {
     const NUM_CLIENTS: usize = 2000;
     let mut client_tasks = Vec::with_capacity(NUM_CLIENTS);
 
+    // Create client tasks in batches to reduce task spawning overhead
     for i in 0..NUM_CLIENTS {
-        client_tasks.push(spawn({
-            let buffer_pool = Arc::clone(&buffer_pool); // Clone the Arc reference here
-            async move {
-                // Connect the client to the server
-                let stream = TcpStream::connect("127.0.0.1:8000")
-                    .await
-                    .expect("Failed to connect to server");
-                let mut connection = Connection::new(stream, buffer_pool.clone());
+        if i % 10 == 0 { // Create tasks in batches of 10 clients at a time for better control
+            let batch = (i..i + 10).map(|i| {
+                let buffer_pool = Arc::clone(&buffer_pool); // Clone the Arc reference here
+                spawn({
+                    async move {
+                        // Connect the client to the server
+                        let stream = TcpStream::connect("127.0.0.1:8000")
+                            .await
+                            .expect("Failed to connect to server");
+                        let mut connection = Connection::new(stream, buffer_pool.clone());
 
-                // Create a unique request packet for each client
-                let example_hash = [i as u8; 32];
-                let msg_type = 0u8;
-                let payload = format!("Request payload from client {}", i).into_bytes();
-                let packet = Packet::new(example_hash, msg_type, payload);
+                        // Create a unique request packet for each client
+                        let example_hash = [i as u8; 32];
+                        let msg_type = 0u8;
+                        let payload = format!("Request payload from client {}", i).into_bytes();
+                        let packet = Packet::new(example_hash, msg_type, payload);
 
-                // Send the packet to the server
-                if let Err(e) = connection.send_packets(vec![packet]).await {
-                    eprintln!("Client {} failed to send packet: {}", i, e);
-                }
+                        // Send the packet to the server
+                        if let Err(e) = connection.send_packets(vec![packet]).await {
+                            eprintln!("Client {} failed to send packet: {}", i, e);
+                        }
 
-                // Receive the server's response
-                if let Ok(_response) = connection.receive_packet().await {
-                    // Process the response (for now we just check it was received)
-                    // e.g., println!("Client {} received response: {:?}", i, response);
-                } else {
-                    eprintln!("Client {} failed to receive a response", i);
-                }
-            }
-        }));
+                        // Receive the server's response
+                        if let Ok(_response) = connection.receive_packet().await {
+                            // Process the response (for now we just check it was received)
+                            // e.g., println!("Client {} received response: {:?}", i, response);
+                        } else {
+                            eprintln!("Client {} failed to receive a response", i);
+                        }
+                    }
+                })
+            }).collect::<Vec<_>>();
+            
+            // Collect tasks in batches
+            client_tasks.extend(batch);
+        }
     }
 
     // Await all client tasks to complete
