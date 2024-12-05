@@ -1,7 +1,6 @@
 use imap::protocol::{
     connection::Client,
     message::Message,
-    error::ProtocolError,
 };
 use std::time::{Duration, Instant};
 use tokio;
@@ -11,8 +10,8 @@ use std::sync::{Arc, Mutex};
 
 const MESSAGE_COUNT: usize = 10_000;
 const PAYLOAD_SIZE: usize = 1024;  // 1KB
-const BATCH_SIZE: usize = 100;
-const CONCURRENT_CONNECTIONS: usize = 8;
+const BATCH_SIZE: usize = 2000;
+const CONCURRENT_CONNECTIONS: usize = 12;
 const TIMEOUT_DURATION: Duration = Duration::from_secs(5);
 
 #[tokio::main]
@@ -52,6 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 }
             }
             connection.flush().await?;
+            connection.close().await?;
             drop(permit);
             Ok::<_, Box<dyn std::error::Error + Send + Sync>>(())
         });

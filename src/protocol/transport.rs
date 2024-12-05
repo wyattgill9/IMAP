@@ -14,6 +14,7 @@ pub trait Transport: Send + Sync {
     async fn send_message(&mut self, message: &Message) -> Result<()>;
     async fn receive_message(&mut self) -> Result<Message>;
     async fn flush(&mut self) -> Result<()>;
+    async fn close(self) -> Result<()>;
 }
 
 pub struct TcpTransport {
@@ -28,11 +29,6 @@ impl TcpTransport {
             reader: BufReader::new(read_half),
             writer: BufWriter::new(write_half),
         })
-    }
-
-    async fn flush(&mut self) -> Result<()> {
-        self.writer.flush().await?;
-        Ok(())
     }
 }
 
@@ -71,5 +67,9 @@ impl Transport for TcpTransport {
     async fn flush(&mut self) -> Result<()> {
         self.writer.flush().await?;
         Ok(())
+    }
+
+    async fn close(self) -> Result<()> {
+        Ok(()) // TCP connection is automatically closed when dropped
     }
 } 

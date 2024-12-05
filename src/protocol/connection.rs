@@ -1,9 +1,6 @@
 use tokio::net::{TcpStream, TcpListener};
-use tokio::io::{BufReader, BufWriter, AsyncReadExt, AsyncWriteExt};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use super::error::Result;
 use super::message::Message;
-use bincode;
 use std::io::Result as IoResult;
 use super::transport::{Transport, TcpTransport};
 
@@ -28,6 +25,10 @@ impl Connection {
 
     pub async fn flush(&mut self) -> Result<()> {
         self.transport.flush().await
+    }
+
+    pub async fn close(self) -> Result<()> {
+        self.transport.close().await
     }
 }
 
