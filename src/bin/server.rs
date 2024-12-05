@@ -16,16 +16,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("New client connected");
                 let count = Arc::clone(&message_count);
                 
-                tokio::spawn(async move { //f
-                    while let Ok(message) = connection.receive().await {
-                        let current_count = count.fetch_add(1, Ordering::SeqCst);
-                        if let Err(e) = connection.send(&message).await {
-                            eprintln!("Send error: {:?}", e);
-                            break;
-                        }
-                        if current_count >= 10_000 {
-                            println!("Benchmark complete, shutting down...");
-                            std::process::exit(0);
+                tokio::spawn(async move {
+                    loop {
+                        match connection.receive().await {
+                            Ok(message) => {
+                                let current_count = count.fetch_add(1, Ordering::SeqCst);
+                                if let Err(_) = connection.send(&message).await {
+                                    // Client disconnected - this is normal behavior
+                                    break;
+                                }
+                                if current_count >= 10_000 {
+                                    println!("Benchmark complete, shutting down...");
+                                    std::process::exit(0);
+                                }
+                            }
+                            Err(_) => {
+                                // Client disconnected - this is normal behavior
+                                break;
+                            }
                         }
                     }
                 });
